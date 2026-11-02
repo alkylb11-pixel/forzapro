@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Forza Track — Умный трекер тренировок</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        forza: {
+                            bg: '#090d16',
+                            card: '#111827',
+                            cardLight: '#172033',
+                            surface: '#1e293b',
+                            border: '#1f2937',
+                            accent: '#0ea5e9',
+                            accentLight: '#38bdf8',
+                            accentGlow: 'rgba(14, 165, 233, 0.15)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #05080f;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* Предотвращение авто-зума iOS при фокусе на полях ввода */
+        input, textarea, select {
+            font-size: 16px !important;
+        }
+
+        /* Скрытие скроллбаров в горизонтальных лентах */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Тонкий вертикальный скроллбар */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+
+        /* Скрытие стрелок у number input */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* Плавные анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .safe-bottom {
+            padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+        }
+    </style>
+</head>
+<body class="min-h-screen flex justify-center bg-[#05080f] selection:bg-sky-500 selection:text-white">
+
+    <!-- МОБИЛЬНЫЙ КОНТЕЙНЕР ПРИЛОЖЕНИЯ (MAX-W-430PX) -->
+    <div class="w-full max-w-[430px] min-h-screen bg-[#090d16] sm:border-x sm:border-slate-800/80 shadow-[0_0_50px_rgba(0,0,0,0.85)] flex flex-col relative overflow-x-hidden pb-24">
+
+        <!-- КОМПАКТНАЯ ВЕРХНЯЯ ШАПКА (STICKY) -->
+        <header class="sticky top-0 z-30 glass-panel border-b border-slate-800/80 px-3.5 py-2.5">
+            <div class="flex items-center justify-between gap-2">
+                <!-- Логотип -->
+                <div class="flex items-center gap-2.5 cursor-pointer active:scale-95 transition" onclick="switchTab('workout')">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+                        <i data-lucide="dumbbell" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-extrabold text-sm tracking-tight bg-gradient-to-r from-white to-sky-400 bg-clip-text text-transparent">FORZA</span>
+                            <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20">PRO</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 leading-none mt-0.5">Gym Tracker</p>
+                    </div>
+                </div>
+
+                <!-- Блок таймера отдыха и активного секундомера -->
+                <div class="flex items-center gap-1.5">
+                    <!-- Кнопка шторки таймера отдыха -->
+                    <button onclick="toggleRestDropdown()" id="rest-timer-trigger" class="h-10 px-2.5 rounded-xl bg-slate-900 border border-slate-800 active:scale-95 flex items-center gap-1.5 text-xs font-semibold text-slate-300 transition">
+                        <i data-lucide="timer" class="w-4 h-4 text-sky-400"></i>
+                        <span id="rest-timer-display">Отдых</span>
+                    </button>
+
+                    <!-- Главный таймер тренировки -->
+                    <div class="h-10 flex items-center bg-slate-900 border border-slate-800 rounded-xl pl-2.5 pr-1 gap-1.5">
+                        <span id="workout-status-dot" class="w-2 h-2 rounded-full bg-slate-500 shrink-0"></span>
+                        <span id="main-timer-display" class="font-mono font-bold text-xs text-white tracking-wider">00:00:00</span>
+                        <button onclick="toggleMainTimer()" id="main-timer-btn" title="Старт / Пауза" class="w-8 h-8 rounded-lg bg-sky-500 active:bg-sky-400 text-white flex items-center justify-center transition">
+                            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="resetMainTimer()" title="Сбросить таймер" class="w-7 h-8 rounded-lg bg-slate-800 active:bg-slate-700 text-slate-300 flex items-center justify-center transition">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ОСНОВНОЙ КОНТЕНТ -->
+        <main class="flex-1 w-full px-3.5 py-3.5">
+
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 1: ТРЕНИРОВКА (АКТИВНЫЙ ПРОЦЕСС)    -->
+            <!-- ========================================== -->
+            <section id="tab-workout" class="space-y-4 animate-fade-in">
+                
+                <!-- Карточка текущей сессии и сводки -->
+                <div class="bg-[#111827] border border-slate-800/90 rounded-2xl p-3.5 space-y-3 shadow-lg">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400 block mb-0.5">Текущая тренировка</span>
+                            <input type="text" id="workout-title-input" oninput="updateWorkoutMeta()" placeholder="Название тренировки..." 
+                                class="w-full bg-transparent font-bold text-white placeholder-slate-500 focus:outline-none border-b border-transparent focus:border-sky-500/50 pb-0.5 transition truncate">
+                        </div>
+                        <button onclick="openCatalogModal()" class="h-10 px-3.5 rounded-xl bg-sky-500 active:bg-sky-400 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 shrink-0 transition">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>Каталог</span>
+                        </button>
+                    </div>
+
+                    <!-- Мини-статистика в 3 колонки -->
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl py-2 px-1">
+                            <div id="stat-exercises-count" class="text-base font-extrabold text-white">0</div>
+                            <div class="text-[10px] text-slate-400">Упражнений</div>
+                        </div>
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl py-2 px-1">
+                            <div id="stat-sets-count" class="text-base font-extrabold text-sky-400">0/0</div>
+                            <div class="text-[10px] text-slate-400">Подходов</div>
+                        </div>
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl py-2 px-1">
+                            <div id="stat-volume-count" class="text-base font-extrabold text-white">0</div>
+                            <div class="text-[10px] text-slate-400">Тоннаж (кг)</div>
+                        </div>
+                    </div>
+
+                    <!-- Заметка ко всей тренировке -->
+                    <div class="bg-slate-950/70 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center gap-2">
+                        <i data-lucide="message-square-text" class="w-4 h-4 text-sky-400 shrink-0"></i>
+                        <input type="text" id="workout-notes-input" oninput="updateWorkoutMeta()" placeholder="Заметка к тренировке (вес тела, самочувствие)..."
+                            class="w-full bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Горизонтальный быстрый выбор тренажёров в 1 тап -->
+                <div class="bg-[#111827] border border-slate-800/90 rounded-2xl p-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="layers" class="w-4 h-4 text-sky-400"></i>
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Быстрый выбор тренажёра</h2>
+                        </div>
+                        <span class="text-[11px] text-slate-500">В 1 нажатие</span>
+                    </div>
+
+                    <!-- Горизонтальный скролл категорий -->
+                    <div id="quick-category-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+                        <!-- Заполняется через JS -->
+                    </div>
+
+                    <!-- Горизонтальная карусель чипсов тренажёров -->
+                    <div id="quick-equipment-list" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+                        <!-- Заполняется через JS -->
+                    </div>
+                </div>
+
+                <!-- Список упражнений текущей тренировки -->
+                <div id="active-exercises-container" class="space-y-3.5">
+                    <!-- Заполняется через JS -->
+                </div>
+
+                <!-- Кнопки завершения / очистки внизу списка -->
+                <div class="pt-2 flex items-center gap-2.5">
+                    <button onclick="clearCurrentWorkout()" class="h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 active:bg-red-500/15 text-slate-400 active:text-red-400 text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span>Сброс</span>
+                    </button>
+                    <button onclick="finishWorkout()" class="h-12 flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 active:from-sky-400 active:to-blue-500 text-white font-bold text-sm shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition">
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                        <span>Завершить тренировку</span>
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 2: ПЛАНЫ ТРЕНИРОВОК (ШАБЛОНЫ)       -->
+            <!-- ========================================== -->
+            <section id="tab-plans" class="hidden space-y-4 animate-fade-in">
+                
+                <!-- Заголовок раздела планов -->
+                <div class="bg-[#111827] border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">Шаблоны программ</span>
+                        <h1 class="text-lg font-extrabold text-white">Планы тренировок</h1>
+                        <p class="text-xs text-slate-400 mt-0.5">Готовые сплиты для быстрого старта</p>
+                    </div>
+                    <button onclick="openPlanCreatorModal()" class="h-11 px-4 rounded-xl bg-sky-500 active:bg-sky-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-sky-500/20 shrink-0 transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Создать</span>
+                    </button>
+                </div>
+
+                <!-- Список карточек планов (одна колонка для мобильного) -->
+                <div id="plans-grid-container" class="space-y-3.5">
+                    <!-- Заполняется через JS -->
+                </div>
+
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ВКЛАДКА 3: ИСТОРИЯ ТРЕНИРОВОК               -->
+            <!-- ========================================== -->
+            <section id="tab-history" class="hidden space-y-4 animate-fade-in">
+                
+                <!-- Шапка истории со сводной аналитикой -->
+                <div class="bg-[#111827] border border-slate-800 rounded-2xl p-4 space-y-3.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">Архив достижений</span>
+                            <h1 class="text-lg font-extrabold text-white">История тренировок</h1>
+                        </div>
+                        <button onclick="confirmClearAllHistory()" id="clear-history-btn" class="h-9 px-3 rounded-xl bg-slate-800/90 active:bg-red-500/20 text-slate-400 active:text-red-400 text-xs font-medium flex items-center gap-1.5 transition">
+                            <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                            <span>Очистить</span>
+                        </button>
+                    </div>
+
+                    <!-- Общая статистика 2x2 -->
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400">Тренировок</div>
+                            <div id="history-total-workouts" class="text-xl font-extrabold text-white mt-0.5">0</div>
+                        </div>
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400">Всего подходов</div>
+                            <div id="history-total-sets" class="text-xl font-extrabold text-sky-400 mt-0.5">0</div>
+                        </div>
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400">Общий тоннаж</div>
+                            <div id="history-total-volume" class="text-xl font-extrabold text-white mt-0.5">0 кг</div>
+                        </div>
+                        <div class="bg-[#172033] border border-slate-800/80 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400">Время в зале</div>
+                            <div id="history-total-time" class="text-xl font-extrabold text-sky-400 mt-0.5">0 мин</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Список завершённых тренировок -->
+                <div id="history-list-container" class="space-y-3.5">
+                    <!-- Заполняется через JS -->
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- ФИКСИРОВАННАЯ НИЖНЯЯ НАВИГАЦИЯ (MAX-W-430PX) -->
+        <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 glass-panel border-t border-slate-800/90 px-3 pt-1.5 safe-bottom">
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="switchTab('workout')" id="nav-mobile-workout" class="h-14 flex flex-col items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400 font-semibold text-xs active:scale-95 transition">
+                    <i data-lucide="flame" class="w-5 h-5 mb-0.5"></i>
+                    <span>Тренировка</span>
+                </button>
+                <button onclick="switchTab('plans')" id="nav-mobile-plans" class="h-14 flex flex-col items-center justify-center rounded-2xl text-slate-400 font-semibold text-xs active:scale-95 transition">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 mb-0.5"></i>
+                    <span>Планы</span>
+                </button>
+                <button onclick="switchTab('history')" id="nav-mobile-history" class="h-14 flex flex-col items-center justify-center rounded-2xl text-slate-400 font-semibold text-xs active:scale-95 transition">
+                    <i data-lucide="history" class="w-5 h-5 mb-0.5"></i>
+                    <span>История</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ===================================================== -->
+        <!-- НИЖНЯЯ ШТОРКА (BOTTOM SHEET): ТАЙМЕР ОТДЫХА           -->
+        <!-- ===================================================== -->
+        <div id="rest-dropdown" class="fixed inset-0 z-50 hidden flex flex-col justify-end items-center bg-black/70 backdrop-blur-sm">
+            <div class="w-full max-w-[430px] bg-[#111827] border-t border-slate-700/80 rounded-t-3xl p-5 shadow-2xl animate-slide-up safe-bottom">
+                <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="timer" class="w-5 h-5 text-sky-400"></i>
+                        <span class="text-sm font-bold uppercase tracking-wider text-white">Таймер отдыха</span>
+                    </div>
+                    <button onclick="toggleRestDropdown()" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="text-center py-5 mb-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+                    <div id="rest-modal-countdown" class="text-5xl font-mono font-extrabold text-sky-400 tracking-wider">00:00</div>
+                    <div class="text-xs text-slate-400 mt-1">Отдых между подходами</div>
+                </div>
+                <div class="grid grid-cols-3 gap-2.5 mb-3">
+                    <button onclick="startRestTimer(60)" class="h-12 rounded-xl bg-[#172033] active:bg-sky-500 active:text-white border border-slate-700/70 text-sm font-bold text-slate-200 transition">60 сек</button>
+                    <button onclick="startRestTimer(90)" class="h-12 rounded-xl bg-[#172033] active:bg-sky-500 active:text-white border border-slate-700/70 text-sm font-bold text-slate-200 transition">90 сек</button>
+                    <button onclick="startRestTimer(120)" class="h-12 rounded-xl bg-[#172033] active:bg-sky-500 active:text-white border border-slate-700/70 text-sm font-bold text-slate-200 transition">2 мин</button>
+                </div>
+                <div class="flex gap-2.5">
+                    <button onclick="addRestSeconds(15)" class="h-12 flex-1 rounded-xl bg-slate-800 active:bg-slate-700 text-sm font-semibold text-sky-400 transition">+15 секунд</button>
+                    <button onclick="stopRestTimer()" class="h-12 flex-1 rounded-xl bg-red-500/15 active:bg-red-500/25 text-red-400 border border-red-500/25 text-sm font-semibold transition">Сбросить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- НИЖНЯЯ ШТОРКА 1: КАТАЛОГ ТРЕНАЖЁРОВ (BOTTOM SHEET)    -->
+        <!-- ===================================================== -->
+        <div id="catalog-modal" class="fixed inset-0 z-50 hidden flex flex-col justify-end items-center bg-black/75 backdrop-blur-sm">
+            <div class="w-full max-w-[430px] bg-[#111827] border-t border-slate-700 rounded-t-3xl h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up safe-bottom">
+                
+                <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
+
+                <!-- Шапка модального окна -->
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+                    <div>
+                        <h3 class="font-extrabold text-base text-white">Каталог тренажёров</h3>
+                        <p class="text-xs text-slate-400">Нажмите на тренажёр для добавления</p>
+                    </div>
+                    <button onclick="closeCatalogModal()" class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Поиск и фильтр по категориям -->
+                <div class="p-3.5 bg-slate-950/60 border-b border-slate-800 space-y-2.5 shrink-0">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" id="catalog-search-input" oninput="renderCatalogItems()" placeholder="Поиск (напр. Гакк-присед, Скамья Скотта)..."
+                            class="w-full h-11 pl-10 pr-4 rounded-xl bg-slate-900 border border-slate-800 focus:border-sky-500 text-white placeholder-slate-500 focus:outline-none">
+                    </div>
+                    <div id="catalog-category-tabs" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                        <!-- Категории рендерятся через JS -->
+                    </div>
+                </div>
+
+                <!-- Список оборудования -->
+                <div id="catalog-items-container" class="flex-1 overflow-y-auto p-3.5 space-y-2">
+                    <!-- Элементы рендерятся через JS -->
+                </div>
+
+                <!-- Подвал модалки -->
+                <div class="p-3.5 border-t border-slate-800 bg-slate-950/80 shrink-0">
+                    <button onclick="closeCatalogModal()" class="w-full h-12 rounded-xl bg-sky-500 active:bg-sky-400 text-white font-bold text-sm transition">
+                        Готово
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- НИЖНЯЯ ШТОРКА 2: КОНСТРУКТОР ПЛАНА (BOTTOM SHEET)     -->
+        <!-- ===================================================== -->
+        <div id="plan-creator-modal" class="fixed inset-0 z-50 hidden flex flex-col justify-end items-center bg-black/75 backdrop-blur-sm">
+            <div class="w-full max-w-[430px] bg-[#111827] border-t border-slate-700 rounded-t-3xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up safe-bottom">
+                
+                <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mt-3 mb-1 shrink-0"></div>
+
+                <!-- Шапка -->
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Конструктор шаблона</span>
+                        <h3 id="plan-modal-header-title" class="font-extrabold text-base text-white">Новый план тренировки</h3>
+                    </div>
+                    <button onclick="closePlanCreatorModal()" class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Тело конструктора -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Название плана *</label>
+                            <input type="text" id="plan-name-input" placeholder="Напр.: День ног и ягодиц" 
+                                class="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-sky-500 text-white placeholder-slate-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Описание / Заметка</label>
+                            <input type="text" id="plan-desc-input" placeholder="Напр.: Тяжёлая базовая, отдых 90 сек" 
+                                class="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-sky-500 text-white placeholder-slate-600 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Выбор тренажёров внутри конструктора -->
+                    <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+                        <span class="text-xs font-bold uppercase tracking-wider text-sky-400 block">1. Выберите тренажёры</span>
+                        <div id="plan-creator-categories" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                            <!-- Заполняется через JS -->
+                        </div>
+                        <div id="plan-creator-equipment-grid" class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                            <!-- Заполняется через JS -->
+                        </div>
+                    </div>
+
+                    <!-- Выбранные упражнения в плане -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">2. Упражнения и подходы</span>
+                            <span id="plan-selected-count" class="text-xs text-sky-400 font-bold">Выбрано: 0</span>
+                        </div>
+                        <div id="plan-selected-exercises-list" class="space-y-2">
+                            <!-- Заполняется через JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Подвал конструктора -->
+                <div class="p-3.5 border-t border-slate-800 bg-slate-950/90 flex items-center gap-2.5 shrink-0">
+                    <button onclick="closePlanCreatorModal()" class="h-12 px-4 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold">
+                        Отмена
+                    </button>
+                    <button onclick="saveWorkoutPlan()" class="h-12 flex-1 rounded-xl bg-sky-500 active:bg-sky-400 text-white font-bold text-sm shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>Сохранить план</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- УВЕДОМЛЕНИЯ (TOAST) В ПРЕДЕЛАХ МОБИЛЬНОГО ЭКРАНА -->
+        <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 w-full max-w-[400px] px-3 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <!-- МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ -->
+        <div id="confirm-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+            <div class="bg-[#111827] border border-slate-800 rounded-2xl max-w-[380px] w-full p-5 shadow-2xl animate-fade-in">
+                <div class="flex items-center gap-3 mb-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+                        <i data-lucide="help-circle" class="w-5 h-5"></i>
+                    </div>
+                    <h4 id="confirm-modal-title" class="text-base font-bold text-white">Подтверждение</h4>
+                </div>
+                <p id="confirm-modal-text" class="text-xs text-slate-300 mb-5 leading-relaxed"></p>
+                <div class="flex items-center gap-2.5">
+                    <button onclick="closeConfirmModal()" class="h-11 flex-1 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Отмена</button>
+                    <button id="confirm-modal-action-btn" class="h-11 flex-1 rounded-xl bg-sky-500 text-white text-xs font-bold">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- ЛОГИКА ПРИЛОЖЕНИЯ (VANILLA JAVASCRIPT)                -->
+    <!-- ===================================================== -->
+    <script>
+        // 1. БАЗА ДАННЫХ ТРЕНАЖЁРОВ И ОБОРУДОВАНИЯ ПО КАТЕГОРИЯМ
+        const EQUIPMENT_CATEGORIES = [
+            {
+                id: 'legs',
+                name: 'Ноги и ягодицы',
+                icon: 'footprints',
+                isCardio: false,
+                items: [
+                    'Жим ногами в угловой платформе',
+                    'Жим ногами лёжа',
+                    'Жим на ягодицы под углом',
+                    'Гакк-присед',
+                    'Разгибание и сгибание ног',
+                    'Ягодичный мост в тренажёре',
+                    'Сведение и разведение ног',
+                    'Отведение и приведение ноги в сторону',
+                    'Отведение ноги назад',
+                    'Икроножные стоя и сидя',
+                    'Стойки для приседа со штангой',
+                    'Машина Смита'
+                ]
+            },
+            {
+                id: 'chest_shoulders',
+                name: 'Грудь и плечи',
+                icon: 'shield',
+                isCardio: false,
+                items: [
+                    'Жим лёжа (горизонтальный и наклонный)',
+                    'Жим от груди в тренажёре',
+                    'Жим от груди под углом',
+                    'Бабочка и разведения',
+                    'Жим вверх в тренажёре',
+                    'Маховые тренажёры на дельты'
+                ]
+            },
+            {
+                id: 'back',
+                name: 'Спина',
+                icon: 'arrow-up-from-dot',
+                isCardio: false,
+                items: [
+                    'Верхняя тяга (широким и узким хватом)',
+                    'Горизонтальная тяга',
+                    'Т-гриф',
+                    'Пулловер',
+                    'Турники и брусья с противовесом',
+                    'Гиперэкстензия',
+                    'Многофункциональная станция'
+                ]
+            },
+            {
+                id: 'arms_abs',
+                name: 'Руки и пресс',
+                icon: 'biceps-flexed',
+                isCardio: false,
+                items: [
+                    'Скамья Скотта',
+                    'Блочные станции на бицепс и трицепс',
+                    'Гантельный ряд с мелким шагом',
+                    'Скамьи для пресса',
+                    'Римский стул',
+                    'Кроссовер'
+                ]
+            },
+            {
+                id: 'free_functional',
+                name: 'Свободный вес и функционал',
+                icon: 'dumbbell',
+                isCardio: false,
+                items: [
+                    'Олимпийские грифы и блины',
+                    'Прямые и EZ-грифы',
+                    'Помост для тяги',
+                    'Гири и медболы',
+                    'TRX и резины',
+                    'Тумбы для зашагивания',
+                    'Рама для функционального тренинга'
+                ]
+            },
+            {
+                id: 'cardio',
+                name: 'Кардио',
+                icon: 'heart-pulse',
+                isCardio: true,
+                items: [
+                    'Беговые дорожки',
+                    'Эллипсоиды',
+                    'Велотренажёры и сайклы',
+                    'Гребные тренажёры',
+                    'Степперы',
+                    'Лестница-климбер',
+                    'Air bike',
+                    'Лыжные тренажёры'
+                ]
+            }
+        ];
+
+        // Дефолтные шаблоны планов тренировок для первого запуска
+        const DEFAULT_PLANS = [
+            {
+                id: 'plan-default-1',
+                name: 'День ног и ягодиц (Силовой акцент)',
+                description: 'Проработка квадрицепсов, бицепса бедра и ягодичных мышц на ключевых тренажёрах.',
+                exercises: [
+                    { name: 'Беговые дорожки', categoryId: 'cardio', categoryName: 'Кардио', isCardio: true, defaultSets: 1 },
+                    { name: 'Жим ногами в угловой платформе', categoryId: 'legs', categoryName: 'Ноги и ягодицы', isCardio: false, defaultSets: 4 },
+                    { name: 'Гакк-присед', categoryId: 'legs', categoryName: 'Ноги и ягодицы', isCardio: false, defaultSets: 4 },
+                    { name: 'Ягодичный мост в тренажёре', categoryId: 'legs', categoryName: 'Ноги и ягодицы', isCardio: false, defaultSets: 4 },
+                    { name: 'Разгибание и сгибание ног', categoryId: 'legs', categoryName: 'Ноги и ягодицы', isCardio: false, defaultSets: 3 },
+                    { name: 'Икроножные стоя и сидя', categoryId: 'legs', categoryName: 'Ноги и ягодицы', isCardio: false, defaultSets: 3 }
+                ]
+            },
+            {
+                id: 'plan-default-2',
+                name: 'Верх тела: Грудь, Спина и Дельты',
+                description: 'Сбалансированная тренировка верха тела с чередованием жимовых и тяговых движений.',
+                exercises: [
+                    { name: 'Жим лёжа (горизонтальный и наклонный)', categoryId: 'chest_shoulders', categoryName: 'Грудь и плечи', isCardio: false, defaultSets: 4 },
+                    { name: 'Верхняя тяга (широким и узким хватом)', categoryId: 'back', categoryName: 'Спина', isCardio: false, defaultSets: 4 },
+                    { name: 'Жим от груди под углом', categoryId: 'chest_shoulders', categoryName: 'Грудь и плечи', isCardio: false, defaultSets: 3 },
+                    { name: 'Горизонтальная тяга', categoryId: 'back', categoryName: 'Спина', isCardio: false, defaultSets: 3 },
+                    { name: 'Маховые тренажёры на дельты', categoryId: 'chest_shoulders', categoryName: 'Грудь и плечи', isCardio: false, defaultSets: 4 },
+                    { name: 'Блочные станции на бицепс и трицепс', categoryId: 'arms_abs', categoryName: 'Руки и пресс', isCardio: false, defaultSets: 3 }
+                ]
+            },
+            {
+                id: 'plan-default-3',
+                name: 'Функционал + Кардио выносливость',
+                description: 'Высокоинтенсивная сессия со свободными весами, канатами/TRX и кардио-блоком.',
+                exercises: [
+                    { name: 'Гребные тренажёры', categoryId: 'cardio', categoryName: 'Кардио', isCardio: true, defaultSets: 1 },
+                    { name: 'Олимпийские грифы и блины', categoryId: 'free_functional', categoryName: 'Свободный вес и функционал', isCardio: false, defaultSets: 4 },
+                    { name: 'Гири и медболы', categoryId: 'free_functional', categoryName: 'Свободный вес и функционал', isCardio: false, defaultSets: 4 },
+                    { name: 'TRX и резины', categoryId: 'free_functional', categoryName: 'Свободный вес и функционал', isCardio: false, defaultSets: 3 },
+                    { name: 'Римский стул', categoryId: 'arms_abs', categoryName: 'Руки и пресс', isCardio: false, defaultSets: 3 },
+                    { name: 'Air bike', categoryId: 'cardio', categoryName: 'Кардио', isCardio: true, defaultSets: 1 }
+                ]
+            }
+        ];
+
+        // 2. СОСТОЯНИЕ ПРИЛОЖЕНИЯ (STATE)
+        const STORAGE_KEYS = {
+            ACTIVE_WORKOUT: 'forza_active_workout_v1',
+            PLANS: 'forza_workout_plans_v1',
+            HISTORY: 'forza_workout_history_v1',
+            TIMER: 'forza_workout_timer_v1'
+        };
+
+        let currentTab = 'workout';
+        let selectedQuickCategory = 'legs';
+        let selectedCatalogCategory = 'all';
+        let selectedPlanCreatorCategory = 'legs';
+
+        // Состояние текущей тренировки
+        let activeWorkout = {
+            title: 'Тренировка в зале',
+            notes: '',
+            exercises: []
+        };
+
+        // Состояние планов и истории
+        let workoutPlans = [];
+        let workoutHistory = [];
+
+        // Состояние конструктора нового плана
+        let draftPlanExercises = [];
+
+        // Таймер основной тренировки
+        let mainTimerSeconds = 0;
+        let mainTimerRunning = false;
+        let mainTimerInterval = null;
+
+        // Таймер отдыха
+        let restTimerSeconds = 0;
+        let restTimerInterval = null;
+
+        // 3. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStateFromStorage();
+            renderQuickCategorySelector();
+            renderActiveWorkout();
+            renderPlans();
+            renderHistory();
+            updateTimerUI();
+            lucide.createIcons();
+        });
+
+        function loadStateFromStorage() {
+            try {
+                // Загрузка активной тренировки
+                const savedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE_WORKOUT);
+                if (savedActive) {
+                    activeWorkout = JSON.parse(savedActive);
+                } else {
+                    // Стартовая демонстрационная тренировка, чтобы экран сразу выглядел живым
+                    activeWorkout = {
+                        title: 'Силовая тренировка',
+                        notes: '',
+                        exercises: [
+                            createExerciseObject('Жим ногами в угловой платформе', 'legs', 'Ноги и ягодицы', false, 3),
+                            createExerciseObject('Жим лёжа (горизонтальный и наклонный)', 'chest_shoulders', 'Грудь и плечи', false, 3)
+                        ]
+                    };
+                    saveActiveWorkout();
+                }
+
+                // Загрузка планов тренировок
+                const savedPlans = localStorage.getItem(STORAGE_KEYS.PLANS);
+                if (savedPlans) {
+                    workoutPlans = JSON.parse(savedPlans);
+                } else {
+                    workoutPlans = DEFAULT_PLANS;
+                    savePlansToStorage();
+                }
+
+                // Загрузка истории
+                const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+                if (savedHistory) {
+                    workoutHistory = JSON.parse(savedHistory);
+                } else {
+                    workoutHistory = [];
+                }
+
+                // Загрузка таймера
+                const savedTimer = localStorage.getItem(STORAGE_KEYS.TIMER);
+                if (savedTimer) {
+                    const parsedTimer = JSON.parse(savedTimer);
+                    mainTimerSeconds = parsedTimer.seconds || 0;
+                }
+            } catch (err) {
+                console.error('Ошибка чтения localStorage:', err);
+            }
+        }
+
+        function saveActiveWorkout() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.ACTIVE_WORKOUT, JSON.stringify(activeWorkout));
+            } catch (e) {
+                console.error('Ошибка сохранения тренировки:', e);
+            }
+        }
+
+        function savePlansToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(workoutPlans));
+            } catch (e) {
+                console.error('Ошибка сохранения планов:', e);
+            }
+        }
+
+        function saveHistoryToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(workoutHistory));
+            } catch (e) {
+                console.error('Ошибка сохранения истории:', e);
+            }
+        }
+
+        function saveTimerToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.TIMER, JSON.stringify({ seconds: mainTimerSeconds }));
+            } catch (e) {}
+        }
+
+        // Создание объекта упражнения с дефолтными подходами
+        function createExerciseObject(name, categoryId, categoryName, isCardio, setsCount = 3) {
+            const sets = [];
+            for (let i = 0; i < setsCount; i++) {
+                sets.push({
+                    id: 'set-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                    weight: isCardio ? 15 : 40, // Для кардио: минуты, для силовых: кг
+                    reps: isCardio ? 2.5 : 10,  // Для кардио: км, для силовых: повторения
+                    completed: false
+                });
+            }
+            return {
+                id: 'ex-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                name,
+                categoryId,
+                categoryName,
+                isCardio,
+                notes: '',
+                sets
+            };
+        }
+
+        // 4. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+        function switchTab(tabName) {
+            currentTab = tabName;
+            const tabs = ['workout', 'plans', 'history'];
+
+            tabs.forEach(t => {
+                const section = document.getElementById(`tab-${t}`);
+                const mobBtn = document.getElementById(`nav-mobile-${t}`);
+
+                if (t === tabName) {
+                    section.classList.remove('hidden');
+                    if (mobBtn) {
+                        mobBtn.className = 'h-14 flex flex-col items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400 font-semibold text-xs active:scale-95 transition';
+                    }
+                } else {
+                    section.classList.add('hidden');
+                    if (mobBtn) {
+                        mobBtn.className = 'h-14 flex flex-col items-center justify-center rounded-2xl text-slate-400 font-semibold text-xs active:scale-95 transition';
+                    }
+                }
+            });
+
+            if (tabName === 'workout') renderActiveWorkout();
+            if (tabName === 'plans') renderPlans();
+            if (tabName === 'history') renderHistory();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            lucide.createIcons();
+        }
+
+        // 5. РАБОТА ГЛАВНОГО ТАЙМЕРА И ТАЙМЕРА ОТДЫХА
+        function formatTimeHHMMSS(totalSeconds) {
+            const hrs = Math.floor(totalSeconds / 3600);
+            const mins = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+        }
+
+        function formatTimeMMSS(totalSeconds) {
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            return [mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+        }
+
+        function toggleMainTimer() {
+            if (mainTimerRunning) {
+                pauseMainTimer();
+            } else {
+                startMainTimer();
+            }
+        }
+
+        function startMainTimer() {
+            if (mainTimerRunning) return;
+            mainTimerRunning = true;
+            mainTimerInterval = setInterval(() => {
+                mainTimerSeconds++;
+                saveTimerToStorage();
+                updateTimerUI();
+            }, 1000);
+            updateTimerUI();
+        }
+
+        function pauseMainTimer() {
+            mainTimerRunning = false;
+            if (mainTimerInterval) clearInterval(mainTimerInterval);
+            updateTimerUI();
+        }
+
+        function resetMainTimer() {
+            pauseMainTimer();
+            mainTimerSeconds = 0;
+            saveTimerToStorage();
+            updateTimerUI();
+            showToast('Таймер тренировки сброшен', 'info');
+        }
+
+        function updateTimerUI() {
+            const display = document.getElementById('main-timer-display');
+            const btn = document.getElementById('main-timer-btn');
+            const dot = document.getElementById('workout-status-dot');
+
+            if (display) display.textContent = formatTimeHHMMSS(mainTimerSeconds);
+
+            if (mainTimerRunning) {
+                btn.innerHTML = '<i data-lucide="pause" class="w-3.5 h-3.5"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-amber-500 active:bg-amber-400 text-white flex items-center justify-center transition';
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0';
+            } else {
+                btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-sky-500 active:bg-sky-400 text-white flex items-center justify-center transition';
+                dot.className = mainTimerSeconds > 0 ? 'w-2 h-2 rounded-full bg-amber-400 shrink-0' : 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
+            }
+            lucide.createIcons();
+        }
+
+        // Таймер отдыха между подходами
+        function toggleRestDropdown() {
+            const dropdown = document.getElementById('rest-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        function startRestTimer(seconds) {
+            if (restTimerInterval) clearInterval(restTimerInterval);
+            restTimerSeconds = seconds;
+            updateRestTimerDisplay();
+
+            restTimerInterval = setInterval(() => {
+                restTimerSeconds--;
+                updateRestTimerDisplay();
+                if (restTimerSeconds <= 0) {
+                    clearInterval(restTimerInterval);
+                    restTimerInterval = null;
+                    showToast('Время отдыха вышло! Пора к следующему подходу.', 'success');
+                }
+            }, 1000);
+        }
+
+        function addRestSeconds(sec) {
+            if (restTimerSeconds <= 0) {
+                startRestTimer(sec);
+            } else {
+                restTimerSeconds += sec;
+                updateRestTimerDisplay();
+            }
+        }
+
+        function stopRestTimer() {
+            if (restTimerInterval) clearInterval(restTimerInterval);
+            restTimerInterval = null;
+            restTimerSeconds = 0;
+            updateRestTimerDisplay();
+        }
+
+        function updateRestTimerDisplay() {
+            const headerDisplay = document.getElementById('rest-timer-display');
+            const modalDisplay = document.getElementById('rest-modal-countdown');
+            const triggerBtn = document.getElementById('rest-timer-trigger');
+
+            if (restTimerSeconds > 0) {
+                const formatted = formatTimeMMSS(restTimerSeconds);
+                headerDisplay.textContent = formatted;
+                modalDisplay.textContent = formatted;
+                triggerBtn.className = 'h-10 px-2.5 rounded-xl bg-sky-500/20 border border-sky-500/50 flex items-center gap-1.5 text-xs font-bold text-sky-300 transition';
+            } else {
+                headerDisplay.textContent = 'Отдых';
+                modalDisplay.textContent = '00:00';
+                triggerBtn.className = 'h-10 px-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-1.5 text-xs font-semibold text-slate-300 transition';
+            }
+        }
+
+        // 6. БЫСТРАЯ ПАНЕЛЬ ВЫБОРА ОБОРУДОВАНИЯ И МОДАЛЬНЫЙ КАТАЛОГ
+        function renderQuickCategorySelector() {
+            const pillsContainer = document.getElementById('quick-category-pills');
+            const listContainer = document.getElementById('quick-equipment-list');
+
+            pillsContainer.innerHTML = EQUIPMENT_CATEGORIES.map(cat => {
+                const active = cat.id === selectedQuickCategory;
+                return `
+                    <button onclick="selectQuickCategory('${cat.id}')" 
+                        class="h-9 px-3 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 shrink-0 transition ${
+                            active 
+                            ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20' 
+                            : 'bg-[#172033] text-slate-300 border border-slate-800'
+                        }">
+                        <i data-lucide="${cat.icon}" class="w-3.5 h-3.5"></i>
+                        <span>${cat.name}</span>
+                    </button>
+                `;
+            }).join('');
+
+            const currentCategory = EQUIPMENT_CATEGORIES.find(c => c.id === selectedQuickCategory) || EQUIPMENT_CATEGORIES[0];
+
+            listContainer.innerHTML = currentCategory.items.map(itemName => {
+                const safeName = itemName.replace(/'/g, "\\'");
+                return `
+                    <button onclick="addExerciseToActiveWorkout('${safeName}', '${currentCategory.id}')"
+                        class="h-10 px-3 rounded-xl bg-slate-950/90 active:bg-sky-500/20 border border-slate-800 active:border-sky-500/50 flex items-center gap-2 shrink-0 transition">
+                        <span class="text-xs font-medium text-slate-200 whitespace-nowrap">${itemName}</span>
+                        <span class="w-5 h-5 rounded-md bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        </span>
+                    </button>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function selectQuickCategory(catId) {
+            selectedQuickCategory = catId;
+            renderQuickCategorySelector();
+        }
+
+        function openCatalogModal() {
+            document.getElementById('catalog-modal').classList.remove('hidden');
+            document.getElementById('catalog-search-input').value = '';
+            selectedCatalogCategory = 'all';
+            renderCatalogCategoryTabs();
+            renderCatalogItems();
+            lucide.createIcons();
+        }
+
+        function closeCatalogModal() {
+            document.getElementById('catalog-modal').classList.add('hidden');
+        }
+
+        function renderCatalogCategoryTabs() {
+            const container = document.getElementById('catalog-category-tabs');
+            const allBtn = `
+                <button onclick="setCatalogCategory('all')" class="h-9 px-3 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition ${
+                    selectedCatalogCategory === 'all' ? 'bg-sky-500 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                }">Все</button>
+            `;
+            const catBtns = EQUIPMENT_CATEGORIES.map(c => `
+                <button onclick="setCatalogCategory('${c.id}')" class="h-9 px-3 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 shrink-0 transition ${
+                    selectedCatalogCategory === c.id ? 'bg-sky-500 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                }">
+                    <i data-lucide="${c.icon}" class="w-3.5 h-3.5"></i>
+                    <span>${c.name}</span>
+                </button>
+            `).join('');
+
+            container.innerHTML = allBtn + catBtns;
+            lucide.createIcons();
+        }
+
+        function setCatalogCategory(catId) {
+            selectedCatalogCategory = catId;
+            renderCatalogCategoryTabs();
+            renderCatalogItems();
+        }
+
+        function renderCatalogItems() {
+            const query = (document.getElementById('catalog-search-input').value || '').trim().toLowerCase();
+            const container = document.getElementById('catalog-items-container');
+            let html = '';
+
+            EQUIPMENT_CATEGORIES.forEach(cat => {
+                if (selectedCatalogCategory !== 'all' && selectedCatalogCategory !== cat.id) return;
+
+                cat.items.forEach(item => {
+                    if (query && !item.toLowerCase().includes(query) && !cat.name.toLowerCase().includes(query)) return;
+                    const safeName = item.replace(/'/g, "\\'");
+                    html += `
+                        <div onclick="addExerciseToActiveWorkout('${safeName}', '${cat.id}')" 
+                            class="cursor-pointer active:scale-[0.99] p-3.5 rounded-2xl bg-[#172033] active:bg-sky-500/15 border border-slate-800 flex items-center justify-between gap-3 transition">
+                            <div class="min-w-0">
+                                <div class="text-sm font-bold text-white leading-snug">${item}</div>
+                                <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                                    <span>${cat.name}</span>
+                                </div>
+                            </div>
+                            <button class="h-9 px-3 rounded-xl bg-sky-500/15 text-sky-400 text-xs font-bold flex items-center gap-1 shrink-0">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                <span>В зал</span>
+                            </button>
+                        </div>
+                    `;
+                });
+            });
+
+            if (!html) {
+                html = `<div class="text-center py-10 text-slate-500 text-xs">По вашему запросу ничего не найдено</div>`;
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // 7. УПРАВЛЕНИЕ АКТИВНОЙ ТРЕНИРОВКОЙ ("ТРЕНИРОВКА")
+        function addExerciseToActiveWorkout(name, categoryId) {
+            const cat = EQUIPMENT_CATEGORIES.find(c => c.id === categoryId) || EQUIPMENT_CATEGORIES[0];
+            const newEx = createExerciseObject(name, cat.id, cat.name, cat.isCardio, cat.isCardio ? 1 : 3);
+            activeWorkout.exercises.push(newEx);
+            saveActiveWorkout();
+            renderActiveWorkout();
+            showToast(`Добавлено: «${name}»`, 'success');
+        }
+
+        function updateWorkoutMeta() {
+            const titleEl = document.getElementById('workout-title-input');
+            const notesEl = document.getElementById('workout-notes-input');
+            activeWorkout.title = titleEl.value;
+            activeWorkout.notes = notesEl.value;
+            saveActiveWorkout();
+        }
+
+        function removeExerciseFromWorkout(exId) {
+            activeWorkout.exercises = activeWorkout.exercises.filter(e => e.id !== exId);
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function moveExercise(index, direction) {
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= activeWorkout.exercises.length) return;
+            const temp = activeWorkout.exercises[index];
+            activeWorkout.exercises[index] = activeWorkout.exercises[targetIndex];
+            activeWorkout.exercises[targetIndex] = temp;
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function updateExerciseNote(exId, value) {
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (ex) {
+                ex.notes = value;
+                saveActiveWorkout();
+            }
+        }
+
+        // Установка точного количества подходов для упражнения
+        function setExerciseSetsCount(exId, newCountStr) {
+            let count = parseInt(newCountStr, 10);
+            if (isNaN(count) || count < 1) count = 1;
+            if (count > 20) count = 20;
+
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (!ex) return;
+
+            const currentLen = ex.sets.length;
+            if (count > currentLen) {
+                const lastSet = ex.sets[currentLen - 1] || { weight: ex.isCardio ? 15 : 40, reps: ex.isCardio ? 2.5 : 10 };
+                for (let i = currentLen; i < count; i++) {
+                    ex.sets.push({
+                        id: 'set-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                        weight: lastSet.weight,
+                        reps: lastSet.reps,
+                        completed: false
+                    });
+                }
+            } else if (count < currentLen) {
+                ex.sets = ex.sets.slice(0, count);
+            }
+
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function addSetToExercise(exId) {
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (!ex) return;
+            const lastSet = ex.sets[ex.sets.length - 1] || { weight: ex.isCardio ? 15 : 40, reps: ex.isCardio ? 2.5 : 10 };
+            ex.sets.push({
+                id: 'set-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                weight: lastSet.weight,
+                reps: lastSet.reps,
+                completed: false
+            });
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function removeSetFromExercise(exId, setId) {
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (!ex) return;
+            if (ex.sets.length <= 1) {
+                showToast('В упражнении должен остаться хотя бы 1 подход', 'info');
+                return;
+            }
+            ex.sets = ex.sets.filter(s => s.id !== setId);
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function updateSetValue(exId, setId, field, val) {
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (!ex) return;
+            const setObj = ex.sets.find(s => s.id === setId);
+            if (!setObj) return;
+
+            const num = parseFloat(val);
+            setObj[field] = isNaN(num) || num < 0 ? 0 : num;
+            saveActiveWorkout();
+            updateWorkoutStatsOnly();
+        }
+
+        function toggleSetCompleted(exId, setId) {
+            const ex = activeWorkout.exercises.find(e => e.id === exId);
+            if (!ex) return;
+            const setObj = ex.sets.find(s => s.id === setId);
+            if (!setObj) return;
+
+            setObj.completed = !setObj.completed;
+
+            // Автоматически запускаем главный таймер тренировки при первом выполненном подходе
+            if (setObj.completed && !mainTimerRunning && mainTimerSeconds === 0) {
+                startMainTimer();
+            }
+
+            saveActiveWorkout();
+            renderActiveWorkout();
+        }
+
+        function updateWorkoutStatsOnly() {
+            let totalSets = 0;
+            let completedSets = 0;
+            let totalVolume = 0;
+
+            activeWorkout.exercises.forEach(ex => {
+                ex.sets.forEach(s => {
+                    totalSets++;
+                    if (s.completed) {
+                        completedSets++;
+                        if (!ex.isCardio) {
+                            totalVolume += (parseFloat(s.weight) || 0) * (parseFloat(s.reps) || 0);
+                        }
+                    }
+                });
+            });
+
+            document.getElementById('stat-exercises-count').textContent = activeWorkout.exercises.length;
+            document.getElementById('stat-sets-count').textContent = `${completedSets}/${totalSets}`;
+            document.getElementById('stat-volume-count').textContent = Math.round(totalVolume).toLocaleString('ru-RU');
+        }
+
+        function renderActiveWorkout() {
+            document.getElementById('workout-title-input').value = activeWorkout.title || '';
+            document.getElementById('workout-notes-input').value = activeWorkout.notes || '';
+            updateWorkoutStatsOnly();
+
+            const container = document.getElementById('active-exercises-container');
+
+            if (activeWorkout.exercises.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-[#111827] border border-dashed border-slate-800 rounded-2xl p-7 text-center">
+                        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mx-auto mb-3">
+                            <i data-lucide="dumbbell" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-white mb-1">Нет упражнений в сессии</h3>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                            Нажмите на любой тренажёр в верхней ленте или запустите готовый шаблон из вкладки «Планы».
+                        </p>
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="openCatalogModal()" class="h-11 px-4 rounded-xl bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                <span>Открыть каталог</span>
+                            </button>
+                            <button onclick="switchTab('plans')" class="h-11 px-4 rounded-xl bg-slate-800 text-slate-200 font-semibold text-xs flex items-center gap-1.5">
+                                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                                <span>Шаблоны</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = activeWorkout.exercises.map((ex, idx) => {
+                const col1Label = ex.isCardio ? 'Мин' : 'Вес (кг)';
+                const col2Label = ex.isCardio ? 'Км' : 'Повт.';
+                const completedInEx = ex.sets.filter(s => s.completed).length;
+
+                const setsRowsHtml = ex.sets.map((s, sIdx) => `
+                    <div class="grid grid-cols-12 items-center gap-1.5 p-2 rounded-xl transition ${
+                        s.completed ? 'bg-sky-500/15 border border-sky-500/40' : 'bg-[#172033] border border-slate-800/80'
+                    }">
+                        <!-- Номер подхода -->
+                        <div class="col-span-2 flex items-center justify-center">
+                            <span class="w-8 h-8 rounded-lg text-xs font-extrabold flex items-center justify-center ${
+                                s.completed ? 'bg-sky-500 text-white' : 'bg-slate-900 text-slate-400'
+                            }">${sIdx + 1}</span>
+                        </div>
+
+                        <!-- Поле Вес / Время -->
+                        <div class="col-span-4">
+                            <input type="number" inputmode="decimal" step="0.5" min="0" value="${s.weight}"
+                                oninput="updateSetValue('${ex.id}', '${s.id}', 'weight', this.value)"
+                                class="w-full h-11 bg-slate-950 border border-slate-700/80 focus:border-sky-500 rounded-xl px-2 text-center font-bold text-white focus:outline-none">
+                        </div>
+
+                        <!-- Поле Повторения / Дистанция -->
+                        <div class="col-span-3">
+                            <input type="number" inputmode="${ex.isCardio ? 'decimal' : 'numeric'}" step="${ex.isCardio ? '0.1' : '1'}" min="0" value="${s.reps}"
+                                oninput="updateSetValue('${ex.id}', '${s.id}', 'reps', this.value)"
+                                class="w-full h-11 bg-slate-950 border border-slate-700/80 focus:border-sky-500 rounded-xl px-2 text-center font-bold text-white focus:outline-none">
+                        </div>
+
+                        <!-- Кнопки выполнения и удаления подхода -->
+                        <div class="col-span-3 flex items-center justify-end gap-1">
+                            <button onclick="toggleSetCompleted('${ex.id}', '${s.id}')" title="Отметить подход"
+                                class="h-11 flex-1 rounded-xl font-bold flex items-center justify-center transition ${
+                                    s.completed 
+                                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25' 
+                                    : 'bg-slate-800 text-slate-300 active:bg-slate-700'
+                                }">
+                                <i data-lucide="check" class="w-5 h-5"></i>
+                            </button>
+                            <button onclick="removeSetFromExercise('${ex.id}', '${s.id}')" title="Удалить подход"
+                                class="w-8 h-11 rounded-xl text-slate-500 active:text-red-400 flex items-center justify-center">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-[#111827] border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-md">
+                        <!-- Шапка упражнения -->
+                        <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                            <div class="flex items-start gap-2.5 min-w-0">
+                                <div class="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/25 text-sky-400 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                                    ${idx + 1}
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="font-bold text-sm text-white leading-snug break-words">${ex.name}</h3>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#172033] text-sky-400 border border-slate-700/60">${ex.categoryName}</span>
+                                        <span class="text-[11px] text-slate-400">Готово: <strong class="text-sky-400">${completedInEx}/${ex.sets.length}</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button onclick="removeExerciseFromWorkout('${ex.id}')" class="w-9 h-9 rounded-xl bg-slate-800/80 active:bg-red-500/20 text-slate-400 active:text-red-400 flex items-center justify-center shrink-0">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- Панель быстрого изменения числа подходов и сортировки -->
+                        <div class="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 rounded-xl px-3 py-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-slate-400">Подходов:</span>
+                                <input type="number" inputmode="numeric" min="1" max="20" value="${ex.sets.length}" 
+                                    onchange="setExerciseSetsCount('${ex.id}', this.value)"
+                                    class="w-12 h-8 bg-[#172033] border border-slate-700 rounded-lg text-center font-bold text-sky-400 focus:outline-none">
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="moveExercise(${idx}, -1)" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+                                    <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="moveExercise(${idx}, 1)" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Заголовки колонок подходов -->
+                        <div class="grid grid-cols-12 gap-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
+                            <div class="col-span-2">Сет</div>
+                            <div class="col-span-4">${col1Label}</div>
+                            <div class="col-span-3">${col2Label}</div>
+                            <div class="col-span-3">Статус</div>
+                        </div>
+
+                        <!-- Список подходов -->
+                        <div class="space-y-2">
+                            ${setsRowsHtml}
+                        </div>
+
+                        <!-- Добавление подхода + заметка к упражнению -->
+                        <div class="space-y-2 pt-1">
+                            <button onclick="addSetToExercise('${ex.id}')" class="w-full h-10 rounded-xl bg-[#172033] active:bg-sky-500/20 text-sky-400 border border-slate-700/80 text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                <span>Добавить подход</span>
+                            </button>
+
+                            <div class="flex items-center gap-2 bg-slate-950/70 border border-slate-800/90 rounded-xl px-3 py-2">
+                                <i data-lucide="pencil-line" class="w-4 h-4 text-slate-500 shrink-0"></i>
+                                <input type="text" value="${(ex.notes || '').replace(/"/g, '&quot;')}"
+                                    oninput="updateExerciseNote('${ex.id}', this.value)"
+                                    placeholder="Заметка (напр. сиденье 4, пауза внизу)..."
+                                    class="w-full bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function clearCurrentWorkout() {
+            if (activeWorkout.exercises.length === 0) return;
+            openConfirmModal(
+                'Очистить текущую тренировку?',
+                'Все добавленные упражнения и несохранённые подходы в текущей сессии будут удалены.',
+                () => {
+                    activeWorkout = {
+                        title: 'Тренировка в зале',
+                        notes: '',
+                        exercises: []
+                    };
+                    saveActiveWorkout();
+                    renderActiveWorkout();
+                    showToast('Текущая сессия очищена', 'info');
+                }
+            );
+        }
+
+        // ЗАВЕРШЕНИЕ ТРЕНИРОВКИ И СОХРАНЕНИЕ В ИСТОРИЮ
+        function finishWorkout() {
+            if (activeWorkout.exercises.length === 0) {
+                showToast('Добавьте хотя бы одно упражнение перед завершением тренировки', 'error');
+                return;
+            }
+
+            pauseMainTimer();
+
+            // Подсчёт итогов тренировки
+            let totalSetsCount = 0;
+            let totalVolumeKg = 0;
+
+            const savedExercises = activeWorkout.exercises.map(ex => {
+                const setsCopy = ex.sets.map(s => {
+                    totalSetsCount++;
+                    if (!ex.isCardio) {
+                        totalVolumeKg += (parseFloat(s.weight) || 0) * (parseFloat(s.reps) || 0);
+                    }
+                    return { ...s };
+                });
+                return {
+                    name: ex.name,
+                    categoryName: ex.categoryName,
+                    isCardio: ex.isCardio,
+                    notes: ex.notes,
+                    sets: setsCopy
+                };
+            });
+
+            const durationSecs = mainTimerSeconds > 0 ? mainTimerSeconds : 2700; // Если таймер не включали, ставим 45 мин по умолчанию
+
+            const historyEntry = {
+                id: 'hist-' + Date.now(),
+                title: (activeWorkout.title || 'Тренировка в зале').trim(),
+                notes: (activeWorkout.notes || '').trim(),
+                dateISO: new Date().toISOString(),
+                durationSeconds: durationSecs,
+                totalSets: totalSetsCount,
+                totalVolume: Math.round(totalVolumeKg),
+                exercises: savedExercises
+            };
+
+            workoutHistory.unshift(historyEntry);
+            saveHistoryToStorage();
+
+            // Сброс текущей сессии и таймера
+            mainTimerSeconds = 0;
+            saveTimerToStorage();
+            updateTimerUI();
+
+            activeWorkout = {
+                title: 'Новая тренировка',
+                notes: '',
+                exercises: []
+            };
+            saveActiveWorkout();
+
+            showToast('Тренировка успешно сохранена в Историю!', 'success');
+            switchTab('history');
+        }
+
+        // 8. ПЛАНЫ ТРЕНИРОВОК (ШАБЛОНЫ)
+        function renderPlans() {
+            const container = document.getElementById('plans-grid-container');
+
+            if (workoutPlans.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-[#111827] border border-dashed border-slate-800 rounded-2xl p-8 text-center">
+                        <h3 class="text-base font-bold text-white mb-1">Нет сохранённых планов</h3>
+                        <p class="text-xs text-slate-400 mb-4">Создайте свой шаблон тренировки для быстрого запуска в зале.</p>
+                        <button onclick="openPlanCreatorModal()" class="h-11 px-4 rounded-xl bg-sky-500 text-white font-bold text-xs inline-flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Создать план</span>
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = workoutPlans.map(plan => {
+                const totalDefaultSets = plan.exercises.reduce((acc, ex) => acc + (ex.defaultSets || 3), 0);
+                const exListHtml = plan.exercises.map((ex, i) => `
+                    <div class="flex items-center justify-between py-2 px-3 rounded-xl bg-[#172033] border border-slate-800/80 text-xs">
+                        <div class="flex items-center gap-2 truncate pr-2">
+                            <span class="text-sky-400 font-bold">${i + 1}.</span>
+                            <span class="text-slate-200 font-medium truncate">${ex.name}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-md bg-slate-900 text-sky-300 font-bold shrink-0">${ex.defaultSets} с.</span>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-[#111827] border border-slate-800 rounded-2xl p-4 space-y-3.5 shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <h3 class="text-base font-extrabold text-white leading-snug">${plan.name}</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">${plan.description || 'Пользовательский шаблон'}</p>
+                            </div>
+                            <button onclick="deleteWorkoutPlan('${plan.id}')" class="w-9 h-9 rounded-xl bg-slate-800/80 active:bg-red-500/20 text-slate-400 active:text-red-400 flex items-center justify-center shrink-0">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-3 text-xs text-slate-400">
+                            <span class="flex items-center gap-1"><i data-lucide="dumbbell" class="w-3.5 h-3.5 text-sky-400"></i> ${plan.exercises.length} упр.</span>
+                            <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5 text-sky-400"></i> ${totalDefaultSets} подходов</span>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            ${exListHtml}
+                        </div>
+
+                        <button onclick="startWorkoutFromPlan('${plan.id}')" class="w-full h-12 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 active:from-sky-400 active:to-blue-500 text-white font-bold text-sm shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition">
+                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                            <span>Старт тренировки</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function startWorkoutFromPlan(planId) {
+            const plan = workoutPlans.find(p => p.id === planId);
+            if (!plan) return;
+
+            const applyPlan = () => {
+                activeWorkout = {
+                    title: plan.name,
+                    notes: plan.description || '',
+                    exercises: plan.exercises.map(ex => createExerciseObject(
+                        ex.name,
+                        ex.categoryId,
+                        ex.categoryName,
+                        ex.isCardio,
+                        ex.defaultSets || 3
+                    ))
+                };
+                saveActiveWorkout();
+                mainTimerSeconds = 0;
+                startMainTimer();
+                switchTab('workout');
+                showToast(`Запущен план: «${plan.name}»`, 'success');
+            };
+
+            if (activeWorkout.exercises.length > 0) {
+                openConfirmModal(
+                    'Запустить тренировку по плану?',
+                    `Текущая тренировка будет заменена шаблоном «${plan.name}».`,
+                    applyPlan
+                );
+            } else {
+                applyPlan();
+            }
+        }
+
+        function deleteWorkoutPlan(planId) {
+            openConfirmModal(
+                'Удалить план тренировки?',
+                'Вы уверены, что хотите удалить этот шаблон из списка планов?',
+                () => {
+                    workoutPlans = workoutPlans.filter(p => p.id !== planId);
+                    savePlansToStorage();
+                    renderPlans();
+                    showToast('План тренировки удалён', 'info');
+                }
+            );
+        }
+
+        // Конструктор нового плана
+        function openPlanCreatorModal() {
+            draftPlanExercises = [];
+            document.getElementById('plan-name-input').value = '';
+            document.getElementById('plan-desc-input').value = '';
+            selectedPlanCreatorCategory = 'legs';
+            document.getElementById('plan-creator-modal').classList.remove('hidden');
+            renderPlanCreatorEquipment();
+            renderDraftPlanExercises();
+            lucide.createIcons();
+        }
+
+        function closePlanCreatorModal() {
+            document.getElementById('plan-creator-modal').classList.add('hidden');
+        }
+
+        function renderPlanCreatorEquipment() {
+            const catsContainer = document.getElementById('plan-creator-categories');
+            const gridContainer = document.getElementById('plan-creator-equipment-grid');
+
+            catsContainer.innerHTML = EQUIPMENT_CATEGORIES.map(c => `
+                <button onclick="selectPlanCreatorCategory('${c.id}')" class="h-8 px-3 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition ${
+                    selectedPlanCreatorCategory === c.id ? 'bg-sky-500 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                }">${c.name}</button>
+            `).join('');
+
+            const cat = EQUIPMENT_CATEGORIES.find(c => c.id === selectedPlanCreatorCategory) || EQUIPMENT_CATEGORIES[0];
+
+            gridContainer.innerHTML = cat.items.map(item => {
+                const safeName = item.replace(/'/g, "\\'");
+                return `
+                    <button onclick="addExerciseToDraftPlan('${safeName}', '${cat.id}')"
+                        class="h-10 px-3 rounded-xl bg-[#172033] active:bg-sky-500/20 border border-slate-800 text-left flex items-center justify-between gap-2 transition">
+                        <span class="text-xs font-medium text-slate-200 truncate">${item}</span>
+                        <i data-lucide="plus" class="w-4 h-4 text-sky-400 shrink-0"></i>
+                    </button>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function selectPlanCreatorCategory(catId) {
+            selectedPlanCreatorCategory = catId;
+            renderPlanCreatorEquipment();
+        }
+
+        function addExerciseToDraftPlan(name, catId) {
+            const cat = EQUIPMENT_CATEGORIES.find(c => c.id === catId) || EQUIPMENT_CATEGORIES[0];
+            draftPlanExercises.push({
+                tempId: 'draft-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                name,
+                categoryId: cat.id,
+                categoryName: cat.name,
+                isCardio: cat.isCardio,
+                defaultSets: cat.isCardio ? 1 : 4
+            });
+            renderDraftPlanExercises();
+        }
+
+        function updateDraftSets(tempId, val) {
+            const item = draftPlanExercises.find(e => e.tempId === tempId);
+            if (!item) return;
+            let num = parseInt(val, 10);
+            if (isNaN(num) || num < 1) num = 1;
+            if (num > 20) num = 20;
+            item.defaultSets = num;
+        }
+
+        function removeDraftExercise(tempId) {
+            draftPlanExercises = draftPlanExercises.filter(e => e.tempId !== tempId);
+            renderDraftPlanExercises();
+        }
+
+        function renderDraftPlanExercises() {
+            const listEl = document.getElementById('plan-selected-exercises-list');
+            const countEl = document.getElementById('plan-selected-count');
+            countEl.textContent = `Выбрано: ${draftPlanExercises.length}`;
+
+            if (draftPlanExercises.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-5 bg-slate-950/40 border border-dashed border-slate-800 rounded-xl text-xs text-slate-500">Нажмите на тренажёры выше, чтобы добавить их в план</div>`;
+                return;
+            }
+
+            listEl.innerHTML = draftPlanExercises.map((ex, i) => `
+                <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#172033] border border-slate-800">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-6 h-6 rounded-lg bg-sky-500/15 text-sky-400 text-xs font-bold flex items-center justify-center shrink-0">${i + 1}</span>
+                        <div class="truncate">
+                            <div class="text-xs font-bold text-white truncate">${ex.name}</div>
+                            <div class="text-[10px] text-slate-400">${ex.categoryName}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <input type="number" inputmode="numeric" min="1" max="20" value="${ex.defaultSets}"
+                            oninput="updateDraftSets('${ex.tempId}', this.value)"
+                            class="w-12 h-9 rounded-lg bg-slate-950 border border-slate-700 text-center font-bold text-sky-400 focus:outline-none">
+                        <button onclick="removeDraftExercise('${ex.tempId}')" class="w-9 h-9 rounded-lg text-slate-400 active:text-red-400 flex items-center justify-center">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function saveWorkoutPlan() {
+            const name = (document.getElementById('plan-name-input').value || '').trim();
+            const description = (document.getElementById('plan-desc-input').value || '').trim();
+
+            if (!name) {
+                showToast('Введите название плана тренировки', 'error');
+                return;
+            }
+            if (draftPlanExercises.length === 0) {
+                showToast('Добавьте хотя бы одно упражнение в план', 'error');
+                return;
+            }
+
+            const newPlan = {
+                id: 'plan-' + Date.now(),
+                name,
+                description,
+                exercises: draftPlanExercises.map(e => ({
+                    name: e.name,
+                    categoryId: e.categoryId,
+                    categoryName: e.categoryName,
+                    isCardio: e.isCardio,
+                    defaultSets: e.defaultSets
+                }))
+            };
+
+            workoutPlans.unshift(newPlan);
+            savePlansToStorage();
+            closePlanCreatorModal();
+            renderPlans();
+            showToast(`План «${name}» сохранён!`, 'success');
+        }
+
+        // 9. ИСТОРИЯ ТРЕНИРОВОК
+        function renderHistory() {
+            const listContainer = document.getElementById('history-list-container');
+            const totalWorkoutsEl = document.getElementById('history-total-workouts');
+            const totalSetsEl = document.getElementById('history-total-sets');
+            const totalVolumeEl = document.getElementById('history-total-volume');
+            const totalTimeEl = document.getElementById('history-total-time');
+
+            // Подсчёт общей статистики
+            const totalWorkouts = workoutHistory.length;
+            const totalSets = workoutHistory.reduce((acc, w) => acc + (w.totalSets || 0), 0);
+            const totalVolume = workoutHistory.reduce((acc, w) => acc + (w.totalVolume || 0), 0);
+            const totalSeconds = workoutHistory.reduce((acc, w) => acc + (w.durationSeconds || 0), 0);
+
+            totalWorkoutsEl.textContent = totalWorkouts;
+            totalSetsEl.textContent = totalSets;
+            totalVolumeEl.textContent = `${totalVolume.toLocaleString('ru-RU')} кг`;
+            totalTimeEl.textContent = `${Math.round(totalSeconds / 60)} мин`;
+
+            if (workoutHistory.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="bg-[#111827] border border-dashed border-slate-800 rounded-2xl p-8 text-center">
+                        <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mx-auto mb-3">
+                            <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-white mb-1">История пока пуста</h3>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                            Завершите тренировку во вкладке «Тренировка», чтобы сохранить подробный отчёт.
+                        </p>
+                        <button onclick="switchTab('workout')" class="h-11 px-4 rounded-xl bg-sky-500 text-white font-bold text-xs inline-flex items-center gap-2">
+                            <i data-lucide="flame" class="w-4 h-4"></i>
+                            <span>К тренировке</span>
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            listContainer.innerHTML = workoutHistory.map(entry => {
+                const dateObj = new Date(entry.dateISO);
+                const formattedDate = dateObj.toLocaleDateString('ru-RU', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+                const formattedTime = dateObj.toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const durationMin = Math.max(1, Math.round((entry.durationSeconds || 0) / 60));
+
+                const exercisesHtml = entry.exercises.map((ex, idx) => {
+                    const setsPills = ex.sets.map((s, sIdx) => {
+                        const unit1 = ex.isCardio ? 'мин' : 'кг';
+                        const unit2 = ex.isCardio ? 'км' : 'повт';
+                        return `
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border ${
+                                s.completed 
+                                ? 'bg-sky-500/10 border-sky-500/30 text-sky-300' 
+                                : 'bg-slate-900 border-slate-800 text-slate-400'
+                            }">
+                                <strong class="text-slate-400">#${sIdx + 1}</strong> ${s.weight}${unit1} × ${s.reps}${unit2}
+                            </span>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="p-3 rounded-xl bg-[#172033] border border-slate-800/80 space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-bold text-white truncate"><span class="text-sky-400 mr-1">${idx + 1}.</span>${ex.name}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 shrink-0">${ex.categoryName}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                ${setsPills}
+                            </div>
+                            ${ex.notes ? `<div class="text-[11px] text-slate-400 italic pt-1 border-t border-slate-800/60">Заметка: ${ex.notes}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="bg-[#111827] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
+                        <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800">
+                            <div>
+                                <div class="flex items-center gap-1.5 text-[11px] text-sky-400 font-semibold mb-0.5">
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                    <span>${formattedDate}, ${formattedTime}</span>
+                                </div>
+                                <h3 class="text-base font-extrabold text-white leading-snug">${entry.title}</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button onclick="repeatWorkoutFromHistory('${entry.id}')" class="h-9 px-3 rounded-xl bg-sky-500/15 active:bg-sky-500 text-sky-400 active:text-white border border-sky-500/30 text-xs font-bold flex items-center gap-1">
+                                    <i data-lucide="repeat" class="w-3.5 h-3.5"></i>
+                                    <span>Повтор</span>
+                                </button>
+                                <button onclick="deleteHistoryEntry('${entry.id}')" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 active:text-red-400 flex items-center justify-center">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="py-1.5 px-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300">
+                                ${durationMin} мин
+                            </div>
+                            <div class="py-1.5 px-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300">
+                                ${entry.totalSets} подх.
+                            </div>
+                            <div class="py-1.5 px-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-sky-400">
+                                ${(entry.totalVolume || 0).toLocaleString('ru-RU')} кг
+                            </div>
+                        </div>
+
+                        ${entry.notes ? `
+                            <div class="p-2.5 rounded-xl bg-sky-500/5 border border-sky-500/20 text-xs text-slate-300">
+                                ${entry.notes}
+                            </div>
+                        ` : ''}
+
+                        <div class="space-y-2">
+                            ${exercisesHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function repeatWorkoutFromHistory(entryId) {
+            const entry = workoutHistory.find(h => h.id === entryId);
+            if (!entry) return;
+
+            activeWorkout = {
+                title: entry.title,
+                notes: entry.notes || '',
+                exercises: entry.exercises.map(ex => ({
+                    id: 'ex-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                    name: ex.name,
+                    categoryId: 'custom',
+                    categoryName: ex.categoryName,
+                    isCardio: ex.isCardio,
+                    notes: ex.notes || '',
+                    sets: ex.sets.map(s => ({
+                        id: 'set-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                        weight: s.weight,
+                        reps: s.reps,
+                        completed: false
+                    }))
+                }))
+            };
+
+            saveActiveWorkout();
+            switchTab('workout');
+            showToast(`Тренировка «${entry.title}» загружена в текущую сессию`, 'success');
+        }
+
+        function deleteHistoryEntry(entryId) {
+            openConfirmModal(
+                'Удалить запись из истории?',
+                'Эта тренировка будет удалена из вашего архива без возможности восстановления.',
+                () => {
+                    workoutHistory = workoutHistory.filter(h => h.id !== entryId);
+                    saveHistoryToStorage();
+                    renderHistory();
+                    showToast('Запись удалена из истории', 'info');
+                }
+            );
+        }
+
+        function confirmClearAllHistory() {
+            if (workoutHistory.length === 0) return;
+            openConfirmModal(
+                'Очистить всю историю тренировок?',
+                'Все сохранённые отчёты о прошлых тренировках будут безвозвратно удалены.',
+                () => {
+                    workoutHistory = [];
+                    saveHistoryToStorage();
+                    renderHistory();
+                    showToast('История тренировок полностью очищена', 'info');
+                }
+            );
+        }
+
+        // 10. УТИЛИТЫ: TOAST-УВЕДОМЛЕНИЯ И МОДАЛЬНОЕ ПОДТВЕРЖДЕНИЕ (БЕЗ ALERT/CONFIRM)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let iconName = 'info';
+            let borderClass = 'border-sky-500/40';
+            let iconColor = 'text-sky-400';
+
+            if (type === 'success') {
+                iconName = 'check-circle-2';
+                borderClass = 'border-emerald-500/40';
+                iconColor = 'text-emerald-400';
+            } else if (type === 'error') {
+                iconName = 'alert-circle';
+                borderClass = 'border-red-500/40';
+                iconColor = 'text-red-400';
+            }
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900/95 border ${borderClass} shadow-xl text-xs sm:text-sm font-medium text-white animate-fade-in`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 ${iconColor} shrink-0"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.25s ease';
+                setTimeout(() => toast.remove(), 250);
+            }, 3000);
+        }
+
+        let confirmActionCallback = null;
+
+        function openConfirmModal(title, text, onConfirm) {
+            document.getElementById('confirm-modal-title').textContent = title;
+            document.getElementById('confirm-modal-text').textContent = text;
+            confirmActionCallback = onConfirm;
+
+            const actionBtn = document.getElementById('confirm-modal-action-btn');
+            actionBtn.onclick = () => {
+                if (confirmActionCallback) confirmActionCallback();
+                closeConfirmModal();
+            };
+
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmActionCallback = null;
+        }
+    </script>
+</body>
+</html>
